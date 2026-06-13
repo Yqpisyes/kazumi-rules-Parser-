@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kazumi</title>
+    <style>
+        :root {
+            --bg-main: #0f172a; --bg-card: #1e293b; --bg-input: #334155;
+            --border-color: #475569; --text-main: #f8fafc; --text-muted: #94a3b8;
+            --accent-blue: #38bdf8; --accent-green: #4ade80; 
+            --accent-yellow: #fbbf24; --accent-red: #f87171;
+        }
+
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: system-ui, sans-serif; margin: 0; padding: 24px; }
+        .dashboard { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        h1 { font-size: 22px; margin: 0; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; }
+        .panel-title { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; font-weight: bold; }
+
+        textarea, input[type="text"] { width: 100%; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); padding: 10px; box-sizing: border-box; outline: none; }
+        textarea { height: 90px; font-family: monospace; font-size: 12px; resize: none; }
+        input[type="text"]:focus, textarea:focus { border-color: var(--accent-blue); }
+        .input-inline { display: flex; gap: 10px; }
+
+        button { background: linear-gradient(135deg, #38bdf8, #0284c7); color: #fff; border: none; border-radius: 6px; padding: 0 20px; font-weight: bold; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
+        button:hover { opacity: 0.9; }
+
+        .action-bar { display: flex; justify-content: center; background: #111827; padding: 12px; border-radius: 8px; border: 1px dashed var(--accent-blue); }
+        .btn-launch { background: linear-gradient(135deg, #22c55e, #16a34a); font-size: 16px; padding: 12px 40px; border-radius: 20px; box-shadow: 0 0 15px rgba(34,197,94,0.2); }
+
+        .matrix-wrapper { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; background: var(--bg-card); text-align: center; font-size: 13px; min-width: 800px; }
+        th, td { padding: 12px; border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
+        th { background: #111827; font-weight: 600; color: var(--text-muted); }
+        .sticky-anime-col { text-align: left; padding-left: 15px; font-weight: bold; background: #111827 !important; position: sticky; left: 0; z-index: 2; width: 180px; color: #fff; }
+
+        .status-badge { display: inline-flex; align-items: center; gap: 6px; font-weight: bold; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .bg-green { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+        .bg-yellow { background: var(--accent-yellow); box-shadow: 0 0 8px var(--accent-yellow); animation: pulse 1.5s infinite; }
+        .bg-red { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); }
+        .bg-gray { background: var(--text-muted); }
+
+        @keyframes pulse { 0%,100% {opacity:1;} 50% {opacity:0.4;} }
+
+        .bottom-captcha-pool { background: linear-gradient(180deg, #1e293b 0%, #090d16 100%); border: 1px solid #d97706; }
+        .pool-flex { display: flex; flex-wrap: wrap; gap: 12px; }
+        .captcha-item { background: #2d3748; border: 1px solid #4a5568; border-radius: 6px; padding: 10px; width: 220px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .captcha-item h5 { margin: 0; font-size: 14px; color: var(--accent-yellow); }
+        .captcha-item img { height: 40px; background: #fff; border-radius: 4px; cursor: pointer; }
+        .captcha-item input { width: 100%; text-align: center; padding: 6px; }
+        .captcha-item button { width: 100%; background: #d97706; padding: 8px 0; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <h1>Kazumi</h1>
+
+    <div class="grid-layout">
+        <div class="panel-card">
+            <div class="panel-title">1. 输入原始规则密文 (kazumi://...)</div>
+            <textarea id="raw-rules-pool" placeholder="请直接粘贴多行 kazumi:// 协议密文..."></textarea>
+        </div>
+        <div class="panel-card" style="display: flex; flex-direction: column; justify-content: center;">
+            <div class="panel-title">2. 输入检测番剧名称</div>
+            <div class="input-inline">
+                <input type="text" id="anime-search-name" placeholder="例如：CLANNAD">
+                <button onclick="commitToGrid()">挂载至大屏</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <button class="btn-launch" onclick="startBatchQueue()">🚀 启动批量检测</button>
+    </div>
+
+    <div class="matrix-wrapper">
+        <table>
+            <thead>
+                <tr id="table-th-row">
+                    <th class="sticky-anime-col">监控番剧名称</th>
+                    </tr>
+            </thead>
+            <tbody id="table-tb-body"></tbody>
+        </table>
+    </div>
+
+    <div class="panel-card bottom-captcha-pool">
+        <div class="panel-title" style="color: var(--accent-yellow);">⚠️ 待安全验证交互池 (同站请求强制 5 秒间隔保护)</div>
+        <div class="pool-flex" id="captcha-box-container"></div>
+    </div>
+</div>
+
+<script>
+    // 💡 已经为你绑定好了专属 Worker 域名
+    const WORKER_ENDPOINT = "https://krules.rdd.moe/";
+
+    let globalRawRules = [];   
+    let taskWaitList = [];     
+    const siteRateLock = {};   
+
+    // 挂载剧集到表格
+    function commitToGrid() {
+        const keyword = document.getElementById('anime-search-name').value.trim();
+        const rawRulesText = document.getElementById('raw-rules-pool').value.trim();
+
+        if (!rawRulesText) return alert("请先在左侧粘贴 Kazumi 规则密文！");
+        if (!keyword) return alert("请输入要监控的动漫名称！");
+
+        const lines = rawRulesText.split('\n').map(l => l.trim()).filter(l => l.startsWith("kazumi://"));
+        if (lines.length === 0) return alert("未检测到有效的 kazumi:// 规则！");
+
+        // 如果是第一次录入，初始化虚拟表头
+        if (globalRawRules.length === 0) {
+            globalRawRules = lines;
+            const trHead = document.getElementById('table-th-row');
+            globalRawRules.forEach((_, index) => {
+                const th = document.createElement('th');
+                th.id = `th-site-${index}`;
+                th.innerText = `解析节点 ${index + 1}`; // 暂定名，等后端返回真实名字后替换
+                trHead.appendChild(th);
+            });
+        } else if (lines.length !== globalRawRules.length) {
+            return alert("规则数量发生改变，请刷新页面重新开始！");
+        }
+
+        const tbody = document.getElementById('table-tb-body');
+        if (document.getElementById(`row-${keyword}`)) return alert("该番剧已在大屏中！");
+
+        const tr = document.createElement('tr');
+        tr.id = `row-${keyword}`;
+        let rowHtml = `<td class="sticky-anime-col">${keyword}</td>`;
+
+        globalRawRules.forEach((rawRule, index) => {
+            const cellId = `cell-${keyword}-${index}`;
+            rowHtml += `<td id="${cellId}"><span class="status-badge" style="color:var(--text-muted);"><span class="dot bg-gray"></span>待就绪</span></td>`;
+            taskWaitList.push({ keyword, rawRule, index });
+        });
+
+        tr.innerHTML = rowHtml;
+        tbody.appendChild(tr);
+        document.getElementById('anime-search-name').value = ""; 
+    }
+
+    // 启动批量探测
+    function startBatchQueue() {
+        if (taskWaitList.length === 0) return alert("请先录入探测任务！");
+        
+        while (taskWaitList.length > 0) {
+            const task = taskWaitList.shift();
+            dispatchToSiteQueue(task.keyword, task.rawRule, task.index);
+        }
+    }
+
+    // 单站点队列：负责发送原始数据给 krules.rdd.moe
+    function dispatchToSiteQueue(keyword, rawRule, cellIndex, isCaptchaSubmit = false, captchaCode = null, cookieStr = null) {
+        let lockName = `index-lock-${cellIndex}`; 
+
+        if (!siteRateLock[lockName]) siteRateLock[lockName] = Promise.resolve();
+
+        siteRateLock[lockName] = siteRateLock[lockName].then(async () => {
+            const cellId = `cell-${keyword}-${cellIndex}`;
+            renderUIStatus(cellId, "bg-gray", "⏳ 穿透中...", "var(--accent-blue)");
+
+            try {
+                const response = await fetch(WORKER_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword, rawRule, captchaCode, cookieStr })
+                });
+                const data = await response.json();
+                
+                // 💡 重点：收到 worker 返回的真实名字后，瞬间把表头替换掉！
+                const realSiteName = data.ruleName || `站点-${cellIndex + 1}`;
+                const thElement = document.getElementById(`th-site-${cellIndex}`);
+                if (thElement) {
+                    thElement.innerText = realSiteName;
+                    thElement.style.color = "#fff"; // 标白高亮，表示已识别
+                }
+
+                if (data.status === "NEED_CAPTCHA") {
+                    renderUIStatus(cellId, "bg-yellow", "要验证", "var(--accent-yellow)");
+                    renderBottomCaptchaCard(keyword, rawRule, cellIndex, realSiteName, data.captchaImg, data.cookieStr);
+                } else if (data.status === "SUCCESS") {
+                    renderUIStatus(cellId, "bg-green", data.quality, "var(--accent-green)");
+                } else {
+                    renderUIStatus(cellId, "bg-red", "解析失败", "var(--accent-red)");
+                }
+            } catch (err) {
+                renderUIStatus(cellId, "bg-red", "网关断开", "var(--accent-red)");
+            }
+
+            // 同站强制 5 秒速率保护
+            await new Promise(res => setTimeout(res, 5000));
+        });
+    }
+
+    function renderUIStatus(cellId, dotClass, text, textColor) {
+        const cell = document.getElementById(cellId);
+        if (cell) {
+            cell.innerHTML = `<span class="status-badge" style="color:${textColor};"><span class="dot ${dotClass}"></span>${text}</span>`;
+        }
+    }
+
+    function renderBottomCaptchaCard(keyword, rawRule, cellIndex, siteName, imgUrl, cookieStr) {
+        const pool = document.getElementById('captcha-box-container');
+        const boxId = `box-index-${cellIndex}`;
+
+        if (document.getElementById(boxId)) return;
+
+        const box = document.createElement('div');
+        box.className = 'captcha-item';
+        box.id = boxId;
+
+        const escapedRule = encodeURIComponent(rawRule);
+
+        box.innerHTML = `
+            <h5>🟡 ${siteName}</h5>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">触发目标: ${keyword}</div>
+            <img src="${imgUrl}?t=${Date.now()}" onclick="this.src='${imgUrl}?t='+Date.now()" title="看不清？点击刷新">
+            <input type="text" id="input-${boxId}" maxlength="6" placeholder="输入验证码">
+            <button onclick="submitBottomCaptcha('${boxId}', '${keyword}', '${escapedRule}', ${cellIndex}, '${cookieStr}')">发送请求</button>
+        `;
+        pool.appendChild(box);
+    }
+
+    function submitBottomCaptcha(boxId, keyword, escapedRule, cellIndex, cookieStr) {
+        const code = document.getElementById(`input-${boxId}`).value.trim();
+        if (!code) return alert("验证码不能为空！");
+
+        const rawRule = decodeURIComponent(escapedRule);
+        document.getElementById(boxId).remove();
+
+        dispatchToSiteQueue(keyword, rawRule, cellIndex, true, code, cookieStr);
+    }
+</script>
+</body>
+</html>
